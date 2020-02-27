@@ -10,7 +10,7 @@ public class Hasher {
 	}
 	
 	
-	public String SHA1FromBytes(byte[] data) {
+	public static String SHA1FromBytes(byte[] data) {
 		 MessageDigest digest;
 		 byte[] hash = null;
 		 

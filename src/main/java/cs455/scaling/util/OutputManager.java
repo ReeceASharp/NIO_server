@@ -26,7 +26,7 @@ public class OutputManager {
 		
 		//20 seconds
 		timer.scheduleAtFixedRate(task, 0, 1000 * 20);
-	}
+	} 
 	
 	public class clientOutput {
 		
