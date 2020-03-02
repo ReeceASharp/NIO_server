@@ -1,14 +1,13 @@
 package cs455.scaling.task;
 
-public class OrganizeBatchData implements Task {
+//this is the message type that tells the Thread to take all of the data
+public class HandleBatch implements Task {
 
 	public void run() {
 		System.out.println(this.getClass().getSimpleName());
-
 	}
 
 	public int getType() {
-		// TODO Auto-generated method stub
 		return 0;
 	}
 
