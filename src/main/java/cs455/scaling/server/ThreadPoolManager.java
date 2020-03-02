@@ -10,29 +10,21 @@ public class ThreadPoolManager {
     private final ThreadPoolWorker[] workers;
     private final LinkedBlockingQueue<Task> queue;
     
-    public ThreadPoolManager(int poolSize, int batchSize) {
+    public ThreadPoolManager(int poolSize, int batchSize, LinkedBlockingQueue<Task> queue) {
     	
     	//start 
         this.poolSize = poolSize;
         workers = new ThreadPoolWorker[poolSize];
-        
-        queue = new LinkedBlockingQueue<Task>(batchSize);
+        this.queue = queue;
         
         for (int i = 0; i < poolSize; i++) {
-            workers[i] = new ThreadPoolWorker();
+            workers[i] = new ThreadPoolWorker(queue);
         }
 	}
     
     public void start() {
         for (int i = 0; i < poolSize; i++) {
             workers[i].start();
-        }
-    }
-    
-    public void execute(Task task) {
-        synchronized (queue) {
-            queue.add(task);
-            queue.notify();
         }
     }
 

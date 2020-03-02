@@ -68,6 +68,7 @@ public class Client {
 	//Client is attempting to connect to the server, socketChannels can throw errors if the server
 	//isn't up and running on specified host:port
 	private void serverConnect() throws IOException {
+		System.out.println("Attempting to connect");
 		//create a channel, non-blocking, and attempt to connect to the server
 		serverChannel = SocketChannel.open();
 		serverChannel.configureBlocking(false);

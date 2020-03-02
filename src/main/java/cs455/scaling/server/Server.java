@@ -8,7 +8,10 @@ import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.util.Iterator;
 import java.util.LinkedList;
+import java.util.concurrent.LinkedBlockingQueue;
 
+import cs455.scaling.task.AcceptClientConnection;
+import cs455.scaling.task.Task;
 import cs455.scaling.util.Hasher;
 import cs455.scaling.util.OutputManager;
 
@@ -26,16 +29,19 @@ E. The server performs functions A, B, C, and D by relying on the thread pool.
 
 public class Server {
 	//OutputManager outputManager = new OutputManager();	//don't worry about this right now
-	LinkedList<String> hashList;
+	LinkedList<String> hashList;	//stores hashed byte[] received from clients
+	private final LinkedBlockingQueue<Task> queue;
 
-	ServerSocketChannel serverSocket;
-	Selector selector;
+	ServerSocketChannel serverSocket;	// the hub for connections from clients to come in on
+	Selector selector;					// selects from the available connections
 
 	ThreadPoolManager manager;
 	
 	public Server(int poolSize, int batchSize, int batchTime) {
-		hashList = new LinkedList<String>(); 
-		manager = new ThreadPoolManager(poolSize, batchSize);
+		hashList = new LinkedList<String>();
+		queue = new LinkedBlockingQueue<>();
+		manager = new ThreadPoolManager(poolSize, batchSize, queue);
+
 	}
 
 	public static void main(String[] args) {
@@ -59,6 +65,14 @@ public class Server {
 		server.configureAndStart(port);
 		System.out.println("Server Successfully configured");
 
+		try {
+			server.channelPolling();
+		} catch (IOException ioe) {
+			ioe.printStackTrace();
+		}
+
+
+
 	}
 	
 	private void configureAndStart(int port) {
@@ -72,7 +86,7 @@ public class Server {
 			serverSocket = ServerSocketChannel.open();
 
 			//setup server socket to listen for connections, but won't handle them
-			serverSocket.socket().bind( new InetSocketAddress( host, port ) );
+			serverSocket.socket().bind( new InetSocketAddress( "localhost", port ) );
 			serverSocket.configureBlocking( false );
 			serverSocket.register( selector, SelectionKey.OP_ACCEPT );
 			
@@ -86,20 +100,25 @@ public class Server {
 	}
 	
 	private void channelPolling() throws IOException {
+		System.out.println("Listening...");
 		while (true) {
 			//no Clients connected
 			if (selector.selectNow() == 0) continue;
-
 			//get list of all keys
 			Iterator<SelectionKey> keys = selector.selectedKeys().iterator();
+
 			while (keys.hasNext()) {
 				SelectionKey key = keys.next();
 				if ( key.isAcceptable()) {
-					//key.
+					System.out.println("Got Connection");
 					//Put new AcceptClientConnection in Queue with this key data
+					queue.add(new AcceptClientConnection(selector, serverSocket));
 				}
 				if ( key.isReadable()) {
 					//put new ReadClientData in Queue, which this key data
+
+				}
+				if ( key.isWritable()) {
 
 				}
 				keys.remove();
