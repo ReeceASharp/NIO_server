@@ -24,7 +24,7 @@ public class ReadClientData implements Task {
 		//attempt to lock down this channel with an attachment
 
 		//read until all 8kb is read, hardcoded
-		ByteBuffer buffer = ByteBuffer.allocate(Constants.BUFFER_SIZE);
+		ByteBuffer buffer = ByteBuffer.allocate(20);
 		int bytesRead = 0;
 		try {
 			while (buffer.hasRemaining() && bytesRead != -1) {
@@ -38,14 +38,6 @@ public class ReadClientData implements Task {
 		//update server with readData
 		server.receivedData(buffer.array());
 	}
-
-	public int getType() {
-		//tentatively run the task, might not be needed as this task will be
-		//created, and the run method will have all that it needs
-		return 3;
-	}
-
-
 
 
 }

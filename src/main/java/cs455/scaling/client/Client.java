@@ -41,9 +41,10 @@ public class Client {
 	
 	public static void main(String[] args) {
 		if (args.length != 3) {
-			System.out.println("Invalid # of arguments. Returning.");
+			System.out.println("Invalid # of arguments. (HOST SERVERPORT MESSAGERATE)");
 			return;
 		}
+
 
 		//pull arguments from command line
 		String serverHost = args[0];
@@ -54,8 +55,11 @@ public class Client {
 		Client client = new Client(serverHost, serverPort, messageRate);
 
 		try {
+			//to give the server a second to setup before this starts
+			Thread.sleep(100);
 			client.serverConnect();
-		} catch (IOException ioe) {
+			Thread.sleep(1000);
+		} catch (IOException | InterruptedException ioe) {
 			System.out.printf("Unable to connect to: %s:%d%n", serverHost, serverPort);
 			return;
 		}
@@ -68,7 +72,7 @@ public class Client {
 	//Client is attempting to connect to the server, socketChannels can throw errors if the server
 	//isn't up and running on specified host:port
 	private void serverConnect() throws IOException {
-		System.out.println("Attempting to connect");
+		System.out.printf("Attempting to connect to: %s:%s%n", serverHost, serverPort);
 		//create a channel, non-blocking, and attempt to connect to the server
 		serverChannel = SocketChannel.open();
 		serverChannel.configureBlocking(false);
@@ -77,7 +81,7 @@ public class Client {
 
 	private void generateMessages() {
 		System.out.println("Starting Message Generation...");
-		byte[] dataToSend = new byte[Constants.BUFFER_SIZE];
+		byte[] dataToSend = new byte[20];
 		ByteBuffer buffer = ByteBuffer.wrap(dataToSend);
 		try {
 			while (true) {

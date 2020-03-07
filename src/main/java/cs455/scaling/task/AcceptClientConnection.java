@@ -20,16 +20,21 @@ public class AcceptClientConnection implements Task {
 	public void run() {
 		System.out.println(this.getClass().getSimpleName());
 
+
 		try {
 			SocketChannel client = serverSocket.accept();
+			System.out.printf("ACCEPTING CONNECTION: %s, %s%n", client, serverSocket);
 
 			client.configureBlocking( false );
 			client.register(selector, SelectionKey.OP_READ);
-
+			//boolean done = client.finishConnect();
+			//System.out.println("Is it successful:" + done);
 		} catch ( IOException ioe) {
 			ioe.printStackTrace();
 		}
 
+
+		System.out.println("CLient successfully registered");
 	}
 
 	public int getType() {
