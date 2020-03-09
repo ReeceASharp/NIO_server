@@ -1,5 +1,6 @@
 package cs455.scaling.task;
 
+import com.sun.org.apache.bcel.internal.Const;
 import cs455.scaling.server.Server;
 
 import java.io.IOException;
@@ -24,7 +25,7 @@ public class ReadClientData implements Task {
 		//attempt to lock down this channel with an attachment
 
 		//read until all 8kb is read, hardcoded
-		ByteBuffer buffer = ByteBuffer.allocate(20);
+		ByteBuffer buffer = ByteBuffer.allocate(Constants.BUFFER_SIZE);
 		int bytesRead = 0;
 		try {
 			while (buffer.hasRemaining() && bytesRead != -1) {

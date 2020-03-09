@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.nio.ByteBuffer;
+import java.nio.channels.NotYetConnectedException;
 import java.nio.channels.SocketChannel;
 import java.util.LinkedList;
 import java.util.Random;
@@ -57,8 +58,9 @@ public class Client {
 		try {
 			//to give the server a second to setup before this starts
 			Thread.sleep(100);
+
 			client.serverConnect();
-			Thread.sleep(1000);
+//			Thread.sleep(1000);
 		} catch (IOException | InterruptedException ioe) {
 			System.out.printf("Unable to connect to: %s:%d%n", serverHost, serverPort);
 			return;
@@ -66,6 +68,7 @@ public class Client {
 
 		//start generating and sending byte[]
 		client.generateMessages();
+
 
 	}
 
@@ -75,24 +78,37 @@ public class Client {
 		System.out.printf("Attempting to connect to: %s:%s%n", serverHost, serverPort);
 		//create a channel, non-blocking, and attempt to connect to the server
 		serverChannel = SocketChannel.open();
-		serverChannel.configureBlocking(false);
 		serverChannel.connect(new InetSocketAddress(serverHost, serverPort));
+		try {
+			Thread.sleep(1000);
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
 	}
 
 	private void generateMessages() {
 		System.out.println("Starting Message Generation...");
-		byte[] dataToSend = new byte[20];
+		byte[] dataToSend = new byte[Constants.BUFFER_SIZE];
 		ByteBuffer buffer = ByteBuffer.wrap(dataToSend);
 		try {
-			while (true) {
+			for (int i = 0; i < 1; i++ ) {
+//			while (true) {
 				//generate a random byte[]
 				byteGenerator.nextBytes(dataToSend);
 				//Hash and append to linkedList
 				String hash = Hasher.SHA1FromBytes(dataToSend);
 				System.out.printf("Generated Message with hash: %s%n", hash);
-
 				//write message over buffer
+
+//				try {
+//					serverChannel.write(buffer);
+//				} catch (NotYetConnectedException noce) {
+//					System.out.println(serverChannel);
+//					noce.printStackTrace();
+//				}
+
 				while (buffer.hasRemaining()) {
+					System.out.println("Writing");
 					serverChannel.write(buffer);
 				}
 

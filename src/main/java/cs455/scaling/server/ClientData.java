@@ -1,6 +1,7 @@
 package cs455.scaling.server;
 
 import java.nio.channels.SelectableChannel;
+import java.nio.channels.SelectableChannel;
 import java.nio.channels.SocketChannel;
 
 public class ClientData {
