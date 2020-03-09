@@ -9,12 +9,12 @@ import java.nio.channels.SocketChannel;
 //is passed the socketChannel
 public class AcceptClientConnection implements Task {
 	Selector selector;
-	ServerSocketChannel serverSocket;
+	ServerSocketChannel server;
 	//SocketChannel channel;
 
-	public AcceptClientConnection(Selector selector, ServerSocketChannel serverSocket) {
+	public AcceptClientConnection(Selector selector, ServerSocketChannel server) {
 		this.selector = selector;
-		this.serverSocket = serverSocket;
+		this.server = server;
 	}
 
 	public void run() {
@@ -22,23 +22,16 @@ public class AcceptClientConnection implements Task {
 
 
 		try {
-			SocketChannel client = serverSocket.accept();
-			System.out.printf("ACCEPTING CONNECTION: %s, %s%n", client, serverSocket);
+			//pick up the connection to the client
+			SocketChannel client = server.accept();
 
-			client.configureBlocking( false );
+			//register reading interest with the selector, nio
+			client.configureBlocking(false);
 			client.register(selector, SelectionKey.OP_READ);
-			//boolean done = client.finishConnect();
-			//System.out.println("Is it successful:" + done);
+			System.out.println("Client successfully registered");
 		} catch ( IOException ioe) {
 			ioe.printStackTrace();
 		}
-
-
-		System.out.println("CLient successfully registered");
-	}
-
-	public int getType() {
-		return 0;
 	}
 
 }

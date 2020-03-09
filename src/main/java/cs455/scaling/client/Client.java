@@ -2,9 +2,7 @@ package cs455.scaling.client;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.net.Socket;
 import java.nio.ByteBuffer;
-import java.nio.channels.NotYetConnectedException;
 import java.nio.channels.SocketChannel;
 import java.util.LinkedList;
 import java.util.Random;
@@ -46,7 +44,6 @@ public class Client {
 			return;
 		}
 
-
 		//pull arguments from command line
 		String serverHost = args[0];
 		int serverPort = Integer.parseInt(args[1]);
@@ -67,9 +64,14 @@ public class Client {
 		}
 
 		//start generating and sending byte[]
-		client.generateMessages();
+//		client.generateMessages();
 
-
+		try {
+			Thread.sleep(10000);
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
+		System.out.println("Client is Exiting.");
 	}
 
 	//Client is attempting to connect to the server, socketChannels can throw errors if the server
@@ -91,7 +93,7 @@ public class Client {
 		byte[] dataToSend = new byte[Constants.BUFFER_SIZE];
 		ByteBuffer buffer = ByteBuffer.wrap(dataToSend);
 		try {
-			for (int i = 0; i < 1; i++ ) {
+			for (int i = 0; i < 10; i++ ) {
 //			while (true) {
 				//generate a random byte[]
 				byteGenerator.nextBytes(dataToSend);
@@ -100,17 +102,19 @@ public class Client {
 				System.out.printf("Generated Message with hash: %s%n", hash);
 				//write message over buffer
 
-//				try {
-//					serverChannel.write(buffer);
-//				} catch (NotYetConnectedException noce) {
-//					System.out.println(serverChannel);
-//					noce.printStackTrace();
-//				}
-
 				while (buffer.hasRemaining()) {
 					System.out.println("Writing");
 					serverChannel.write(buffer);
 				}
+
+//				buffer.rewind();
+//
+//				while (buffer.hasRemaining()) {
+//					System.out.println("Writing");
+//					serverChannel.write(buffer);
+//				}
+
+				buffer.clear();
 
 				System.out.printf("Sent Message. Waiting %.3f seconds.%n", (float) 1 / messageRate);
 				Thread.sleep(1000 / messageRate);
@@ -120,6 +124,7 @@ public class Client {
 		} catch (IOException ioe) {
 			System.out.println("Error writing to server channel. Exiting.");
 		}
+		System.out.println("Exiting.");
 	}
 
 
