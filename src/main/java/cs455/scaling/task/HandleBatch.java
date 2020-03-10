@@ -1,54 +1,34 @@
 package cs455.scaling.task;
 
-import cs455.scaling.server.Batch;
 import cs455.scaling.server.ClientData;
 import cs455.scaling.util.Hasher;
 
 import java.io.IOException;
-import java.net.Socket;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
-import java.nio.channels.SocketChannel;
 import java.util.ArrayList;
 import java.util.LinkedList;
-import java.util.List;
 
 //this is the message type that gives the thread a 'batch' of data to handle
 public class HandleBatch implements Task {
 	//private Batch data;
 
-	private final ArrayList<ClientData> channelsToHandle;		//Stores the clients with data to handle
+	private final ArrayList<ClientData> batch;		//Stores the clients with data to handle
 	private LinkedList<String> hashList;
 	private int batchSize;	//Can either be the max batch size, or it'll be the size of the batch if it hit timeout
 
-	public HandleBatch(ArrayList<ClientData> channelsToHandle, LinkedList<String> hashList, int batchSize) {
-		this.channelsToHandle = channelsToHandle;
+	public HandleBatch(ArrayList<ClientData> batch, LinkedList<String> hashList) {
+		this.batch = batch;
 		this.hashList = hashList;
-		this.batchSize = batchSize;
-
-
 	}
 
 	public void run() {
-		System.out.println(this.getClass().getSimpleName());
+		System.out.println(this.getClass().getSimpleName() + ", BatchSize: " + batch.size());
 		//preallocate the buffer, and then just rewind it each time
 		ByteBuffer buffer = ByteBuffer.allocate(Constants.BUFFER_SIZE);
 
-
-		ArrayList<ClientData> batch;
-
 		//get the current batch from the intermediate list
 		//read each
-		synchronized(channelsToHandle) {
-			System.out.printf("Getting list of size: %d%n", batchSize);
-			//System.out.println(channelsToHandle);
-			batch = new ArrayList<>(channelsToHandle.subList(0, batchSize));
-
-			if (batchSize > 0) {
-				channelsToHandle.subList(0, batchSize).clear();
-			}
-		}
-
 
 		//For each byte[] passed in the batch, calculate the SHA1, and attempt to pass it to the
 		//Server.

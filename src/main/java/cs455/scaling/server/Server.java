@@ -13,6 +13,7 @@ import java.util.concurrent.Semaphore;
 
 import cs455.scaling.task.AcceptClientConnection;
 import cs455.scaling.task.HandleBatch;
+import cs455.scaling.task.OrganizeBatch;
 import cs455.scaling.task.Task;
 import cs455.scaling.util.Hasher;
 
@@ -125,12 +126,13 @@ public class Server {
 	
 	private void channelPolling() throws IOException {
 		//used by the accept loop to make sure it doesn't attempt to register the same thing multiple times
-		Semaphore lock = new Semaphore(1);
+		Semaphore acceptLock = new Semaphore(1);
+		Semaphore organizeLock = new Semaphore(1);
 
 		//System.out.println("Listening...");
 		while (true) {
 			//Blocks until there is activity on one of the channels
-//			System.out.println("Waiting For Activity");
+			System.out.println("Waiting For Activity");
 //			System.out.print("+");
 			try {
 				Thread.sleep(500);
@@ -161,14 +163,14 @@ public class Server {
 					continue;
 				}
 
-				if ( key.isAcceptable() && lock.tryAcquire()) {
+				if ( key.isAcceptable() && acceptLock.tryAcquire()) {
 
 						//already created a task for it
 
 					System.out.printf("Got Connection. %s%n", key.channel());
 
 					//Put new AcceptClientConnection in Queue with this key data
-					queue.add(new AcceptClientConnection(selector, server, lock));
+					queue.add(new AcceptClientConnection(selector, server, acceptLock));
 
 
 					//deregister, will be handled by the threadpool
@@ -191,8 +193,6 @@ public class Server {
 					//put new ReadClientData in Queue, which this key data
 					SocketChannel client = (SocketChannel) key.channel();
 
-//					if (channelsToHandle.)
-
 					//Make sure the channelsToHandle isn't edited by a thread mid add/size check
 					//also synchronized with the Thread's work when it handles the batch organization
 					synchronized (channelsToHandle) {
@@ -200,9 +200,9 @@ public class Server {
 						System.out.printf("Client sent Data. Appending '%s' to list. Current Size: %d%n", client.getRemoteAddress(), channelsToHandle.size());
 
 						//if there are more than enough clients to handle, hand it off to a client and move on
-						if (channelsToHandle.size() >= batchSize) {
-							System.out.println("BATCH LIMIT REACHED.");
-							queue.add(new HandleBatch(channelsToHandle, hashList, batchSize));
+						if (channelsToHandle.size() >= batchSize && organizeLock.tryAcquire()) {
+							System.out.println("BATCH LIMIT REACHED. Organizing data.");
+							queue.add(new OrganizeBatch(channelsToHandle, queue, hashList, batchSize, organizeLock));
 						}
 					}
 

@@ -99,11 +99,9 @@ public class Client {
 				//write message over buffer
 
 				while (buffer.hasRemaining()) {
-					System.out.println("Writing");
+					//System.out.println("Writing");
 					serverChannel.write(buffer);
 				}
-
-
 
 				//written successfully, append to linked list
 				hashList.add(hash);
@@ -114,7 +112,7 @@ public class Client {
 				int bytesRead = 0;
 				try {
 					while (hashReceive.hasRemaining() && bytesRead != -1) {
-						System.out.println("Waiting for response");
+						//System.out.println("Waiting for response");
 						bytesRead = serverChannel.read(hashReceive);
 					}
 				} catch (IOException ioe) {
@@ -124,14 +122,14 @@ public class Client {
 
 
 				String receivedHash = new String(hashReceive.array());
-				System.out.printf("Message:  '%s' Size: %d%n", receivedHash, bytesRead);
+				System.out.printf("Received Message:  '%s' Size: %d%n%n", receivedHash, bytesRead);
 
 				//reset for next message
 				hashReceive.clear();
 
 
 
-				System.out.printf("Sent Message. Waiting %.3f seconds.%n", (float) 1 / messageRate);
+				//System.out.printf("Sent Message. Waiting %.3f seconds.%n", (float) 1 / messageRate);
 				Thread.sleep(1000 / messageRate);
 			}
 		} catch (InterruptedException ie) {
