@@ -15,8 +15,10 @@ import java.util.concurrent.LinkedBlockingQueue;
 
 import cs455.scaling.task.AcceptClientConnection;
 import cs455.scaling.task.Constants;
+import cs455.scaling.task.HandleBatch;
 import cs455.scaling.task.Task;
 import cs455.scaling.util.Hasher;
+import javafx.util.Pair;
 
 /*
 1.1 Server Node:
@@ -36,7 +38,11 @@ public class Server {
 	//OutputManager outputManager = new OutputManager();	//don't worry about this right now
 	LinkedList<String> hashList;	//stores hashed byte[] received from clients
 	private final LinkedBlockingQueue<Task> queue;	//stores entire tasks to handle
-	private final ArrayList<ClientData> clientDataList;		//Stores the clients with data to handle
+	private final ArrayList<ClientData> channelsToHandle;		//Stores the clients with data to handle
+	//private final ArrayList<Pair<byte[], >
+
+	//TODO: need to do something to keep track of per client messaging rates
+	//private final ArrayList<>
 
 	private final int poolSize;
 	private final int batchSize;
@@ -50,7 +56,7 @@ public class Server {
 	public Server(int poolSize, int batchSize, int batchTime) {
 		hashList = new LinkedList<String>();
 		queue = new LinkedBlockingQueue<>();
-		clientDataList = new ArrayList<>();
+		channelsToHandle = new ArrayList<>();
 
 		this.poolSize = poolSize;
 		this.batchSize = batchSize;
@@ -72,6 +78,8 @@ public class Server {
 		int poolSize = Integer.parseInt(args[1]);
 		int batchSize = Integer.parseInt(args[2]);
 		int batchTime = Integer.parseInt(args[3]);
+
+		System.out.printf("BATCHSIZE: %d, BATCHTIME: %d%n", batchSize, batchTime);
 		
 		//initialize the server
 		Server server = new Server(poolSize, batchSize, batchTime);
@@ -101,8 +109,9 @@ public class Server {
 			server = ServerSocketChannel.open();
 			server.socket().bind( new InetSocketAddress( host, port ) );
 			server.configureBlocking( false );
+
+			//setup selector to listen for connections on this serverSocketChannel
 			server.register( selector, SelectionKey.OP_ACCEPT );
-			//setup server socket to listen for connections, but won't handle them
 
 
 			
@@ -118,10 +127,13 @@ public class Server {
 	private void channelPolling() throws IOException {
 		//System.out.println("Listening...");
 		while (true) {
-			//no Clients connected
-//			if (selector.selectNow() == 0) continue;
-			System.out.println("Waiting for info");
-			selector.select();
+			//Blocks until there is activity on one of the channels
+//			System.out.println("Waiting For Activity");
+//			System.out.print("+");
+
+			if (selector.selectNow() == 0) continue;
+//			selector.select();
+			System.out.println("ENDING BLOCK");
 			//get list of all keys
 			Iterator<SelectionKey> keys = selector.selectedKeys().iterator();
 
@@ -129,13 +141,33 @@ public class Server {
 				//get key and find its activity
 				SelectionKey key = keys.next();
 
+				//selector.
+
+				if (!key.isValid()) {
+					System.out.println("Canceled key encountered. Ignoring.");
+					continue;
+				}
+
 				if ( key.isAcceptable()) {
-					System.out.printf("Got Connection. %s%n", key);
+
+
+					//already created a task for it
+					if (key.attachment() != null) {
+						continue;
+					}
+
+					System.out.printf("Got Connection. %n");
+					key.attach(new Object());
+
+
+
 					//unregister the interest to accept, and create task to handle reading
-					//key.interestOps(0);
+//					key.interestOps(0);
 
 					//Put new AcceptClientConnection in Queue with this key data
 					queue.add(new AcceptClientConnection(selector, server));
+
+					//deregister, will be handled by the threadpool
 
 //					//pick up connection
 //					SocketChannel client = server.accept();
@@ -151,33 +183,56 @@ public class Server {
 					//put new ReadClientData in Queue, which this key data
 					SocketChannel client = (SocketChannel) key.channel();
 
-					//clientDataList.add(new ClientData(clientConnection));
+					//Make sure the channelsToHandle isn't edited by a thread mid add/size check
+					//also synchronized with the Thread's work when it handles the batch organization
+					synchronized (channelsToHandle) {
+						channelsToHandle.add(new ClientData(client, key));
+						System.out.printf("Client sent Data. Appending '%s' to list. Current Size: %d%n", client.getRemoteAddress(), channelsToHandle.size());
 
-					ByteBuffer buffer = ByteBuffer.allocate(Constants.BUFFER_SIZE);
-
-					System.out.printf("Client has data to read: Remaining: '%d' %s %n", buffer.remaining(), client.getLocalAddress());
-					int bytesRead = 0;
-					try {
-						//buffer is empty, or a full set of data has been read
-						while (buffer.hasRemaining() && bytesRead != -1) {
-							System.out.println("Reading");
-							bytesRead = client.read(buffer);
+						//if there are more than enough clients to handle, hand it off to a client and move on
+						if (channelsToHandle.size() >= batchSize) {
+							System.out.println("BATCH LIMIT REACHED.");
+							queue.add(new HandleBatch(channelsToHandle, hashList, batchSize));
 						}
-					} catch (IOException ioe) {
-						key.channel().close();
-						key.cancel();
-						System.out.println("Error reading from buffer. Removing Client");
-						//ioe.printStackTrace();
-						continue;
 					}
 
-					String hash = Hasher.SHA1FromBytes(buffer.array());
-//					String message = new String (buffer.array()).trim();
-					System.out.printf("Message: '%s' Size: %d%n", hash, bytesRead);
+//					//channelsToHandle.add((SocketChannel) key.channel());
+//					ByteBuffer buffer = ByteBuffer.allocate(Constants.BUFFER_SIZE);
+//
+//					System.out.printf("Client has data to read: Remaining: '%d' %s %n", buffer.remaining(), client.getLocalAddress());
+//					int bytesRead = 0;
+//					try {
+//						//buffer is empty, or a full set of data has been read
+//						while (buffer.hasRemaining() && bytesRead != -1) {
+//							System.out.println("Reading");
+//							bytesRead = client.read(buffer);
+//						}
+//					} catch (IOException ioe) {
+//						key.channel().close();
+//						key.cancel();
+//						System.out.println("Error reading from buffer. Removing Client");
+//
+//						//Deregister this client, cancel the key, and move on
+//						//Note: when deregistering a client, when it is shut down remotely it'll
+//						//activate read-interest on the selector to read a potential error. Ignore it.
+//						continue;
+//					}
+//
+//					//Successful read, convert received message to Hash, store, and send back
+//					String hash = Hasher.SHA1FromBytes(buffer.array());
+//					hashList.add(hash);
+////					String message = new String (buffer.array()).trim();
+//					System.out.printf("Message: '%s' Size: %d%n", hash, bytesRead);
+
+
+					//deregister this so the task isn't constantly put into the queue
+					//it'll be reregisterd with read interests as soon as the data is read from it
+
 
 //					if (clientDataList.size() > batchSize) {
 //						queue.add(new OrganizeBatch(clientDataList, queue, batchSize));
 //					}
+
 				}
 				if ( key.isWritable()) {
 					System.out.println("Client can be written to");
@@ -186,11 +241,6 @@ public class Server {
 				keys.remove();
 			}
 //			System.out.println("RAN OUT OF KEYS");
-			try {
-				Thread.sleep(2);
-			} catch (InterruptedException e) {
-				e.printStackTrace();
-			}
 		}
 	}
 	
@@ -200,5 +250,9 @@ public class Server {
 		hashList.add(hash);
 
 		//p
+	}
+
+	public synchronized void cancelKey(SocketChannel channelToCancel) {
+		//selector.selectedKeys().
 	}
 }

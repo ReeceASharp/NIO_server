@@ -57,14 +57,13 @@ public class Client {
 			Thread.sleep(100);
 
 			client.serverConnect();
-//			Thread.sleep(1000);
 		} catch (IOException | InterruptedException ioe) {
 			System.out.printf("Unable to connect to: %s:%d%n", serverHost, serverPort);
 			return;
 		}
 
 		//start generating and sending byte[]
-//		client.generateMessages();
+		//client.generateMessages();
 
 		try {
 			Thread.sleep(10000);
@@ -81,16 +80,12 @@ public class Client {
 		//create a channel, non-blocking, and attempt to connect to the server
 		serverChannel = SocketChannel.open();
 		serverChannel.connect(new InetSocketAddress(serverHost, serverPort));
-		try {
-			Thread.sleep(1000);
-		} catch (InterruptedException e) {
-			e.printStackTrace();
-		}
 	}
 
 	private void generateMessages() {
 		System.out.println("Starting Message Generation...");
 		byte[] dataToSend = new byte[Constants.BUFFER_SIZE];
+		ByteBuffer hashReceive = ByteBuffer.allocate(20);
 		ByteBuffer buffer = ByteBuffer.wrap(dataToSend);
 		try {
 			for (int i = 0; i < 10; i++ ) {
@@ -107,14 +102,33 @@ public class Client {
 					serverChannel.write(buffer);
 				}
 
-//				buffer.rewind();
-//
-//				while (buffer.hasRemaining()) {
-//					System.out.println("Writing");
-//					serverChannel.write(buffer);
-//				}
 
+
+				//written successfully, append to linked list
+				hashList.add(hash);
+
+				//reset buffer to beginning, so it can write new information next time
 				buffer.clear();
+
+				int bytesRead = 0;
+				try {
+					while (hashReceive.hasRemaining() && bytesRead != -1) {
+						System.out.println("Waiting for response");
+						bytesRead = serverChannel.read(hashReceive);
+					}
+				} catch (IOException ioe) {
+					System.out.println("Error reading from buffer.");
+				}
+
+
+
+				String receivedHash = new String(hashReceive.array());
+				System.out.printf("Message:  '%s' Size: %d%n", receivedHash, bytesRead);
+
+				//reset for next message
+				hashReceive.clear();
+
+
 
 				System.out.printf("Sent Message. Waiting %.3f seconds.%n", (float) 1 / messageRate);
 				Thread.sleep(1000 / messageRate);
@@ -128,6 +142,7 @@ public class Client {
 	}
 
 
+	//used to print out client data each second
 	public TimerTask print() {
 		System.out.println("Got a task");
 		return null;

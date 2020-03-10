@@ -2,20 +2,16 @@ package cs455.scaling.server;
 
 import java.nio.channels.SelectableChannel;
 import java.nio.channels.SelectableChannel;
+import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
 
 public class ClientData {
-    //store the client socket
-    //TODO: Find out how to get socketChannel
 
-    private SocketChannel channel;
+    public final SocketChannel channel;
+    public final SelectionKey key;
 
-    //store the byte[]
-
-    //store the SHA1
-
-
-    public ClientData(SocketChannel channel) {
+    public ClientData(SocketChannel channel, SelectionKey key) {
         this.channel = channel;
+        this.key = key;
     }
 }

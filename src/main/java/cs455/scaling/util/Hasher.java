@@ -3,6 +3,7 @@ package cs455.scaling.util;
 import java.math.BigInteger;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.Arrays;
 
 public class Hasher {
 
@@ -23,10 +24,27 @@ public class Hasher {
         }
         BigInteger hashInt = new BigInteger(1, hash);
 
-        //Potential Issue. Feb 21, 11:00 echo, non-constant hash length.
-		//need to pad, or also send the length first, then the hash
-        return hashInt.toString(16);
+        //leading zeros are dropped. Pad to 20 bytes, but the hash is in
+        //hex, so 40 characters
 
+        String standardHash = standardize(hashInt.toString(16));
+
+        return standardHash;
+
+    }
+
+    private static String standardize(String hash) {
+        StringBuilder sb = new StringBuilder(hash);
+
+
+        int zerosToAppend = 40 - hash.length();
+        if (zerosToAppend > 0) {
+            char[] zeros = new char[zerosToAppend];
+            Arrays.fill(zeros, '0');
+            sb.insert(0, zeros);
+        }
+
+        return sb.toString();
     }
 
 }

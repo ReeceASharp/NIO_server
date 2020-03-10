@@ -8,7 +8,7 @@ import java.nio.channels.SocketChannel;
 
 //is passed the socketChannel
 public class AcceptClientConnection implements Task {
-	Selector selector;
+	final Selector selector;
 	ServerSocketChannel server;
 	//SocketChannel channel;
 
@@ -19,19 +19,20 @@ public class AcceptClientConnection implements Task {
 
 	public void run() {
 		System.out.println(this.getClass().getSimpleName());
-
-
 		try {
 			//pick up the connection to the client
 			SocketChannel client = server.accept();
-
 			//register reading interest with the selector, nio
 			client.configureBlocking(false);
+
 			client.register(selector, SelectionKey.OP_READ);
+
 			System.out.println("Client successfully registered");
 		} catch ( IOException ioe) {
 			ioe.printStackTrace();
 		}
+
+//		System.out.println("REturning");
 	}
 
 }
