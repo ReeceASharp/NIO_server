@@ -53,13 +53,13 @@ public class HandleBatch implements Task {
 		//For each byte[] passed in the batch, calculate the SHA1, and attempt to pass it to the
 		//Server.
 		for (ClientData client : batch) {
-
-			int bytesRead = 0;
 			try {
+				int bytesRead = 0;
+
 				//buffer is empty, or a full set of data has been read
-				System.out.printf("Client has data to read: Remaining: '%d' %s%n", buffer.remaining(), client.channel.getLocalAddress());
+				System.out.printf("Client has data to read: Remaining: '%d' %s%n", buffer.remaining(), client.channel.getRemoteAddress());
 				while (buffer.hasRemaining() && bytesRead != -1) {
-//					System.out.println("Reading");
+					System.out.println("Reading");
 					bytesRead = client.channel.read(buffer);
 				}
 
@@ -67,17 +67,15 @@ public class HandleBatch implements Task {
 				String hash = Hasher.SHA1FromBytes(buffer.array());
 				hashList.add(hash);
 //					String message = new String (buffer.array()).trim();
-				System.out.printf("Message: '%s' Size: %d%n", hash, bytesRead);
+				System.out.printf("Message: '%s' Size: %d%n", hash, hash.getBytes().length);
 
 				ByteBuffer hashToSend = ByteBuffer.wrap(hash.getBytes());
 
-				/*
+
 				while (hashToSend.hasRemaining()) {
-					System.out.printf("Writing back to Client: '%s'%n", hashToSend);
+					System.out.printf("Writing back to Client: '%s'%n", hash);
 					client.channel.write(hashToSend);
 				}
-
-				 */
 
 				hashToSend.rewind();
 				buffer.rewind();

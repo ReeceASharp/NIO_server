@@ -3,22 +3,18 @@ package cs455.scaling.server;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
-import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.LinkedList;
+import java.util.*;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.Semaphore;
 
 import cs455.scaling.task.AcceptClientConnection;
-import cs455.scaling.task.Constants;
 import cs455.scaling.task.HandleBatch;
 import cs455.scaling.task.Task;
 import cs455.scaling.util.Hasher;
-import javafx.util.Pair;
 
 /*
 1.1 Server Node:
@@ -36,10 +32,11 @@ E. The server performs functions A, B, C, and D by relying on the thread pool.
 
 public class Server {
 	//OutputManager outputManager = new OutputManager();	//don't worry about this right now
-	LinkedList<String> hashList;	//stores hashed byte[] received from clients
+
+	private LinkedList<String> hashList;	//stores hashed byte[] received from clients
 	private final LinkedBlockingQueue<Task> queue;	//stores entire tasks to handle
 	private final ArrayList<ClientData> channelsToHandle;		//Stores the clients with data to handle
-	//private final ArrayList<Pair<byte[], >
+	private final ArrayList<SocketChannel> clientsToAccept;
 
 	//TODO: need to do something to keep track of per client messaging rates
 	//private final ArrayList<>
@@ -48,15 +45,17 @@ public class Server {
 	private final int batchSize;
 	private final int batchTime;
 
-	ServerSocketChannel server;	// the hub for connections from clients to come in on
-	Selector selector;					// selects from the available connections
 
-	ThreadPoolManager manager;
+	private ServerSocketChannel server;	// the hub for connections from clients to come in on
+	private Selector selector;					// selects from the available connections
+
+	private ThreadPoolManager manager;
 	
 	public Server(int poolSize, int batchSize, int batchTime) {
 		hashList = new LinkedList<String>();
 		queue = new LinkedBlockingQueue<>();
 		channelsToHandle = new ArrayList<>();
+		clientsToAccept = new ArrayList<>();
 
 		this.poolSize = poolSize;
 		this.batchSize = batchSize;
@@ -125,47 +124,52 @@ public class Server {
 	}
 	
 	private void channelPolling() throws IOException {
+		//used by the accept loop to make sure it doesn't attempt to register the same thing multiple times
+		Semaphore lock = new Semaphore(1);
+
 		//System.out.println("Listening...");
 		while (true) {
 			//Blocks until there is activity on one of the channels
 //			System.out.println("Waiting For Activity");
 //			System.out.print("+");
+			try {
+				Thread.sleep(500);
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
 
-			if (selector.selectNow() == 0) continue;
-//			selector.select();
-			System.out.println("ENDING BLOCK");
+//			if (selector.selectNow() == 0) continue;
+			selector.select();
+//			System.out.println("ENDING BLOCK");
 			//get list of all keys
 			Iterator<SelectionKey> keys = selector.selectedKeys().iterator();
 
 			while (keys.hasNext()) {
+
+//				try {
+//					Thread.sleep(200);
+//				} catch (InterruptedException e) {
+//					e.printStackTrace();
+//				}
+
 				//get key and find its activity
 				SelectionKey key = keys.next();
 
-				//selector.
 
 				if (!key.isValid()) {
 					System.out.println("Canceled key encountered. Ignoring.");
 					continue;
 				}
 
-				if ( key.isAcceptable()) {
+				if ( key.isAcceptable() && lock.tryAcquire()) {
 
+						//already created a task for it
 
-					//already created a task for it
-					if (key.attachment() != null) {
-						continue;
-					}
-
-					System.out.printf("Got Connection. %n");
-					key.attach(new Object());
-
-
-
-					//unregister the interest to accept, and create task to handle reading
-//					key.interestOps(0);
+					System.out.printf("Got Connection. %s%n", key.channel());
 
 					//Put new AcceptClientConnection in Queue with this key data
-					queue.add(new AcceptClientConnection(selector, server));
+					queue.add(new AcceptClientConnection(selector, server, lock));
+
 
 					//deregister, will be handled by the threadpool
 
@@ -180,8 +184,14 @@ public class Server {
 				}
 
 				if ( key.isReadable()) {
+
+					//deregister this key, as it's now not part of the serverSocketChannel, only a specific
+					//client
+					key.interestOps(0);
 					//put new ReadClientData in Queue, which this key data
 					SocketChannel client = (SocketChannel) key.channel();
+
+//					if (channelsToHandle.)
 
 					//Make sure the channelsToHandle isn't edited by a thread mid add/size check
 					//also synchronized with the Thread's work when it handles the batch organization

@@ -63,10 +63,10 @@ public class Client {
 		}
 
 		//start generating and sending byte[]
-		//client.generateMessages();
+		client.generateMessages();
 
 		try {
-			Thread.sleep(10000);
+			Thread.sleep(20000);
 		} catch (InterruptedException e) {
 			e.printStackTrace();
 		}
@@ -80,12 +80,13 @@ public class Client {
 		//create a channel, non-blocking, and attempt to connect to the server
 		serverChannel = SocketChannel.open();
 		serverChannel.connect(new InetSocketAddress(serverHost, serverPort));
+		System.out.println("Connected To server via: " + serverChannel.getLocalAddress());
 	}
 
 	private void generateMessages() {
 		System.out.println("Starting Message Generation...");
 		byte[] dataToSend = new byte[Constants.BUFFER_SIZE];
-		ByteBuffer hashReceive = ByteBuffer.allocate(20);
+		ByteBuffer hashReceive = ByteBuffer.allocate(40);
 		ByteBuffer buffer = ByteBuffer.wrap(dataToSend);
 		try {
 			for (int i = 0; i < 10; i++ ) {
