@@ -28,18 +28,34 @@ public class AcceptClientConnection implements Task {
 //			synchronized ()
 			//pick up the connection to the client
 			SocketChannel client = server.accept();
+
+			if (client == null) {
+				System.out.println("Client is Null *****************");
+				lock.release();
+				return;
+			}
+
 			//register reading interest with the selector, nio
 			client.configureBlocking(false);
 
+			//register this channel with the selector to pay attention when it can read
 			client.register(selector, SelectionKey.OP_READ);
+			//client.finishConnect();
+
+//			while(client.isConnectionPending()) {
+//				System.out.print("PENDING");
+//			}
+//			while(!client.isConnected()) {
+//				System.out.println("NOT CONNECTED");
+//			}
 
 			System.out.printf("Client successfully registered: %s%n", client.getRemoteAddress());
 		} catch ( IOException ioe) {
 			ioe.printStackTrace();
 		}
-
-		System.out.println("REturning");
 		lock.release();
+		System.out.println("Releasing Lock and returning\n");
+
 	}
 
 	@Override

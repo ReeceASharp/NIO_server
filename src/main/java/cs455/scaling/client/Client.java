@@ -55,22 +55,20 @@ public class Client {
 
 
 		try {
-			//to give the server a second to setup before this starts
-			Thread.sleep(500);
-
 			client.serverConnect();
-		} catch (IOException | InterruptedException ioe) {
+		} catch (IOException io) {
 			System.out.printf("Unable to connect to: %s:%d%n", serverHost, serverPort);
 			return;
 		}
 
 
-		client.start();
+		//client.start();
 
 		//start generating and sending byte[]
 		//client.generateMessages();
 
 		try {
+			System.out.println("Would start generating Here.");
 			Thread.sleep(20000);
 		} catch (InterruptedException e) {
 			e.printStackTrace();
@@ -81,7 +79,7 @@ public class Client {
 	private void start() {
 
 		Timer timer = new Timer("");
-		timer.scheduleAtFixedRate(new sendData(), 1000, 500);
+		timer.scheduleAtFixedRate(new sendData(), 5000, 200);
 
 		//Start listening for incoming data
 		listen();
@@ -101,6 +99,7 @@ public class Client {
 			}
 
 			String receivedHash = new String(hashReceive.array());
+
 			System.out.printf("Received Message:  '%s' Size: %d%n%n", receivedHash, bytesRead);
 
 			//reset for next message
@@ -118,12 +117,13 @@ public class Client {
 		System.out.println("Connected To server via: " + serverChannel.getLocalAddress());
 
 		while (!serverChannel.isConnected()) {
+			System.out.println("Waiting For Connection to finish");
 			try {
 				Thread.sleep(100);
 			} catch (InterruptedException e) {
 				e.printStackTrace();
 			}
-			System.out.println("Waiting For Connection to finish");
+
 		}
 	}
 
@@ -155,7 +155,7 @@ public class Client {
 
 				//write message over buffer
 				while (buffer.hasRemaining()) {
-					System.out.println("Writing");
+//					System.out.println("Writing");
 					serverChannel.write(buffer);
 				}
 

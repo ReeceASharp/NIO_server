@@ -112,7 +112,7 @@ public class Server {
 
 			//setup selector to listen for connections on this serverSocketChannel
 			server.register( selector, SelectionKey.OP_ACCEPT );
-
+			System.out.println("Listening on: " + server.getLocalAddress());
 
 			
 		} catch (IOException e) {
@@ -147,6 +147,7 @@ public class Server {
 //			SelectionKey.OP_WRITE = 4
 
 //			System.out.println("Waiting For Activity");
+			//System.out.print('_');
 //			if (selector.selectNow() == 0) continue;
 			selector.select();
 //			System.out.println("ENDING BLOCK");
@@ -157,8 +158,6 @@ public class Server {
 
 				//get key and find its activity
 				SelectionKey key = keys.next();
-
-
 
 				System.out.printf("Key Value: Interest: %d, Ready: %d%n", key.interestOps(), key.readyOps());
 
@@ -173,19 +172,17 @@ public class Server {
 						System.out.println("Lock Already Initiated");
 						continue;
 					}
-
-
 					//already created a task for it
 
 					System.out.printf("Accepting New Connection. %s%n", key.channel());
 
 					//Put new AcceptClientConnection in Queue with this key data
 					queue.add(new AcceptClientConnection(selector, server, acceptLock));
-					try {
-						Thread.sleep(200);
-					} catch (InterruptedException e) {
-						e.printStackTrace();
-					}
+//					try {
+//						Thread.sleep(200);
+//					} catch (InterruptedException e) {
+//						e.printStackTrace();
+//					}
 
 				}
 
