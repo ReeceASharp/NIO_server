@@ -37,9 +37,9 @@ public class HandleBatch implements Task {
 				int bytesRead = 0;
 
 				//buffer is empty, or a full set of data has been read
-				System.out.printf("Client has data to read: Remaining: '%d' %s%n", buffer.remaining(), client.channel.getRemoteAddress());
+//				System.out.printf("Client has data to read: Remaining: '%d' %s%n", buffer.remaining(), client.channel.getRemoteAddress());
 				while (buffer.hasRemaining() && bytesRead != -1) {
-					System.out.println("Reading");
+//					System.out.println("Reading");
 					bytesRead = client.channel.read(buffer);
 				}
 
@@ -47,13 +47,13 @@ public class HandleBatch implements Task {
 				String hash = Hasher.SHA1FromBytes(buffer.array());
 				hashList.add(hash);
 //					String message = new String (buffer.array()).trim();
-				System.out.printf("Message: '%s' Size: %d%n", hash, hash.getBytes().length);
+//				System.out.printf("Message: '%s' Size: %d%n", hash, hash.getBytes().length);
 
 				ByteBuffer hashToSend = ByteBuffer.wrap(hash.getBytes());
 
 
 				while (hashToSend.hasRemaining()) {
-					System.out.printf("Writing back to Client: '%s'%n", hash);
+//					System.out.printf("Writing back to Client: '%s'%n", hash);
 					client.channel.write(hashToSend);
 				}
 
@@ -66,7 +66,7 @@ public class HandleBatch implements Task {
 			} catch (IOException ioe) {
 //				key.channel().close();
 //				key.cancel();
-				System.out.println("Error reading from buffer. Removing Client");
+				System.out.println("Error reading from buffer. Removing Client: ");
 
 				//Deregister this client, cancel the key, and move on
 				//Note: when deregistering a client, when it is shut down remotely it'll

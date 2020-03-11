@@ -25,12 +25,11 @@ public class AcceptClientConnection implements Task {
 	public void run() {
 //		System.out.println(this.getClass().getSimpleName());
 		try {
-//			synchronized ()
 			//pick up the connection to the client
 			SocketChannel client = server.accept();
 
 			if (client == null) {
-				System.out.println("Client is Null *****************");
+//				System.out.println("Client is Null *****************");
 				lock.release();
 				return;
 			}
@@ -49,12 +48,12 @@ public class AcceptClientConnection implements Task {
 //				System.out.println("NOT CONNECTED");
 //			}
 
-			System.out.printf("Client successfully registered: %s%n", client.getRemoteAddress());
+//			System.out.printf("Client successfully registered: %s%n", client.getRemoteAddress());
 		} catch ( IOException ioe) {
 			ioe.printStackTrace();
 		}
 		lock.release();
-		System.out.println("Releasing Lock and returning\n");
+//		System.out.println("Releasing Lock and returning\n");
 
 	}
 

@@ -24,7 +24,7 @@ public class ThreadPoolWorker extends Thread {
 		try {
 			while (true) {
 				Task task = queue.take();
-				System.out.println("Worker is starting Task: " + task.getName());
+//				System.out.println("Worker is starting Task: " + task.getName());
 				task.run();
 
 

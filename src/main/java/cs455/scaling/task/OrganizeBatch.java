@@ -31,7 +31,7 @@ public class OrganizeBatch implements Task {
 //        System.out.println(this.getClass().getSimpleName());
 
         synchronized(channelsToHandle) {
-            System.out.printf("Getting list of size: %d from %d %n", batchSize, channelsToHandle.size());
+//            System.out.printf("Getting list of size: %d from %d %n", batchSize, channelsToHandle.size());
             //System.out.println(channelsToHandle);
             batch = new ArrayList<>(channelsToHandle.subList(0, batchSize));
 

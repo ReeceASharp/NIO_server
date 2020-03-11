@@ -28,6 +28,8 @@ public class Client {
 
 	private SocketChannel serverChannel;
 
+	private Timer timer;
+
 	
 	public Client(String serverHost, int serverPort, int messageRate) {
 		this.serverHost = serverHost;
@@ -62,7 +64,7 @@ public class Client {
 		}
 
 
-		//client.start();
+		client.start();
 
 		//start generating and sending byte[]
 		//client.generateMessages();
@@ -78,8 +80,8 @@ public class Client {
 
 	private void start() {
 
-		Timer timer = new Timer("");
-		timer.scheduleAtFixedRate(new sendData(), 5000, 200);
+		timer = new Timer("");
+		timer.scheduleAtFixedRate(new sendData(), 5000, 250);
 
 		//Start listening for incoming data
 		listen();
@@ -96,6 +98,17 @@ public class Client {
 				}
 			} catch (IOException ioe) {
 				System.out.println("Error reading from buffer.");
+
+			}
+
+			if (bytesRead == -1) {
+				timer.cancel();
+
+				try {
+					serverChannel.close();
+				} catch (IOException e) { /* ignore */ }
+
+				return;
 			}
 
 			String receivedHash = new String(hashReceive.array());
@@ -125,13 +138,6 @@ public class Client {
 			}
 
 		}
-	}
-
-
-	//used to print out client data each second
-	public TimerTask print() {
-		System.out.println("Got a task");
-		return null;
 	}
 
 	class sendData extends TimerTask {

@@ -93,7 +93,6 @@ public class Server {
 		} catch (IOException ioe) {
 			ioe.printStackTrace();
 		}
-
 	}
 	
 	private void configureAndStart(int port) {
@@ -124,22 +123,19 @@ public class Server {
 		manager.start();
 	}
 
-
-	
 	private void channelPolling() throws IOException {
 		//used by the accept loop to make sure it doesn't attempt to register the same thing multiple times
 		Semaphore acceptLock = new Semaphore(1);
 		Semaphore organizeLock = new Semaphore(1);
 		System.out.println("Listening...");
+
+//		int i = 0;
 		while (true) {
+//			i++;
 			//Blocks until there is activity on one of the channels
 
-//			System.out.print("+");
-//			try {
-//				Thread.sleep(100);
-//			} catch (InterruptedException e) {
-//				e.printStackTrace();
-//			}
+//			if (i % 100000 == 0)
+//				System.out.print("+");
 
 //			SelectionKey.OP_ACCEPT = 16
 //			SelectionKey.OP_CONNECT = 8
@@ -147,19 +143,18 @@ public class Server {
 //			SelectionKey.OP_WRITE = 4
 
 //			System.out.println("Waiting For Activity");
-			//System.out.print('_');
-//			if (selector.selectNow() == 0) continue;
-			selector.select();
+			if (selector.selectNow() == 0) continue;
+//			selector.select();
 //			System.out.println("ENDING BLOCK");
 			//get list of all keys
 			Iterator<SelectionKey> keys = selector.selectedKeys().iterator();
 
 			while (keys.hasNext()) {
-
+//				System.out.println("+");
 				//get key and find its activity
 				SelectionKey key = keys.next();
 
-				System.out.printf("Key Value: Interest: %d, Ready: %d%n", key.interestOps(), key.readyOps());
+//				System.out.printf("Key Value: Interest: %d, Ready: %d%n", key.interestOps(), key.readyOps());
 
 				if (!key.isValid()) {
 					System.out.println("Canceled key encountered. Ignoring.");
@@ -169,12 +164,12 @@ public class Server {
 				if ( key.isAcceptable()) {
 
 					if (!acceptLock.tryAcquire()) {
-						System.out.println("Lock Already Initiated");
+//						System.out.println("Lock Already Initiated");
 						continue;
 					}
 					//already created a task for it
 
-					System.out.printf("Accepting New Connection. %s%n", key.channel());
+//					System.out.printf("Accepting New Connection. %s%n", key.channel());
 
 					//Put new AcceptClientConnection in Queue with this key data
 					queue.add(new AcceptClientConnection(selector, server, acceptLock));
@@ -186,10 +181,7 @@ public class Server {
 
 				}
 
-
-
 				if ( key.isReadable()) {
-
 					//deregister this key, as it's now not part of the serverSocketChannel, only a specific
 					//client
 					key.interestOps(0);
@@ -200,51 +192,14 @@ public class Server {
 					//also synchronized with the Thread's work when it handles the batch organization
 					synchronized (channelsToHandle) {
 						channelsToHandle.add(new ClientData(client, key));
-						System.out.printf("Client sent Data. Appending '%s' to list. Current Size: %d%n", client.getRemoteAddress(), channelsToHandle.size());
+//						System.out.printf("Client_Data: Appending '%s' to list. Size: %d%n", client.getRemoteAddress(), channelsToHandle.size());
 
 						//if there are more than enough clients to handle, hand it off to a client and move on
 						if (channelsToHandle.size() >= batchSize && organizeLock.tryAcquire()) {
-							System.out.println("BATCH LIMIT REACHED. Organizing data.");
+//							System.out.println("BATCH LIMIT REACHED. Organizing data.");
 							queue.add(new OrganizeBatch(channelsToHandle, queue, hashList, batchSize, organizeLock));
 						}
 					}
-
-//					//channelsToHandle.add((SocketChannel) key.channel());
-//					ByteBuffer buffer = ByteBuffer.allocate(Constants.BUFFER_SIZE);
-//
-//					System.out.printf("Client has data to read: Remaining: '%d' %s %n", buffer.remaining(), client.getLocalAddress());
-//					int bytesRead = 0;
-//					try {
-//						//buffer is empty, or a full set of data has been read
-//						while (buffer.hasRemaining() && bytesRead != -1) {
-//							System.out.println("Reading");
-//							bytesRead = client.read(buffer);
-//						}
-//					} catch (IOException ioe) {
-//						key.channel().close();
-//						key.cancel();
-//						System.out.println("Error reading from buffer. Removing Client");
-//
-//						//Deregister this client, cancel the key, and move on
-//						//Note: when deregistering a client, when it is shut down remotely it'll
-//						//activate read-interest on the selector to read a potential error. Ignore it.
-//						continue;
-//					}
-//
-//					//Successful read, convert received message to Hash, store, and send back
-//					String hash = Hasher.SHA1FromBytes(buffer.array());
-//					hashList.add(hash);
-////					String message = new String (buffer.array()).trim();
-//					System.out.printf("Message: '%s' Size: %d%n", hash, bytesRead);
-
-
-					//deregister this so the task isn't constantly put into the queue
-					//it'll be reregisterd with read interests as soon as the data is read from it
-
-
-//					if (clientDataList.size() > batchSize) {
-//						queue.add(new OrganizeBatch(clientDataList, queue, batchSize));
-//					}
 
 				}
 				if ( key.isWritable()) {
