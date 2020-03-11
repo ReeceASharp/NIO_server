@@ -37,15 +37,18 @@ public class OrganizeBatch implements Task {
         //create a deep-copy of the list of work of batchSize size, but can also be smaller, like when
         //timeout is hit. When it's done dealing with data, release the queue
         synchronized(channelsToHandle) {
-//          System.out.printf("Getting list of size: %d from %d %n", batchSize, channelsToHandle.size());
-
             if (batchSize > 0) {
-                batch = new ArrayList<>(channelsToHandle.subList(0, batchSize));
-                channelsToHandle.subList(0, batchSize).clear();
+                try {
+                    batch = new ArrayList<>(channelsToHandle.subList(0, batchSize));
+                    channelsToHandle.subList(0, batchSize).clear();
+                } catch (IndexOutOfBoundsException iob) {
+                    /* ignore */
+                    lock.release();
+                    return;
+                }
             }
         }
         lock.release();
-
         server.addTask(new HandleBatch(batch, hashList, server));
     }
 
