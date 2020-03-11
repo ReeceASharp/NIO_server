@@ -7,15 +7,16 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
+import java.sql.Timestamp;
 import java.util.*;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import cs455.scaling.task.AcceptClientConnection;
-import cs455.scaling.task.HandleBatch;
+import cs455.scaling.task.Constants;
 import cs455.scaling.task.OrganizeBatch;
 import cs455.scaling.task.Task;
-import cs455.scaling.util.Hasher;
 
 /*
 1.1 Server Node:
@@ -26,29 +27,25 @@ C. Groups data from the clients together into batches
 D. Replies to clients by sending back a hash code for each message received.
 E. The server performs functions A, B, C, and D by relying on the thread pool. 
 */
-
-// Idea: use an intermediary data-structure to handle the batches.
-// Connections should be immediately put into the queue, as it
-// wouldn't make sense to have them handle
-
 public class Server {
-	//OutputManager outputManager = new OutputManager();	//don't worry about this right now
-
-	private LinkedList<String> hashList;	//stores hashed byte[] received from clients
-	private final LinkedBlockingQueue<Task> queue;	//stores entire tasks to handle
+	private LinkedList<String> hashList;						//stores hashed byte[] received from clients
+	private final LinkedBlockingQueue<Task> queue;				//stores entire tasks to handle
 	private final ArrayList<ClientData> channelsToHandle;		//Stores the clients with data to handle
-	private final ArrayList<SocketChannel> clientsToAccept;
+	private final Hashtable<String, Integer> currentClients;				//
 
-	//TODO: need to do something to keep track of per client messaging rates
-	//private final ArrayList<>
+	private Timer timer;										//handles output + batch timeouts
+	private ScheduleTimeout timeout;
+	private Semaphore organizeLock;
 
-	private final int poolSize;
-	private final int batchSize;
-	private final int batchTime;
+	private final int batchSize;								//max # of clients in each batch
+	private final int batchTime;								//time before batch is automatically sent
+	private final AtomicInteger messagesReceived;				//keep track of incoming messages
+	private final AtomicInteger messagesSent;					//keep track of outgoing messages
+	private final AtomicInteger connectedClients;				//number of concurrent clients
 
 
-	private ServerSocketChannel server;	// the hub for connections from clients to come in on
-	private Selector selector;					// selects from the available connections
+	private ServerSocketChannel serverChannel;							//the hub for connections from clients to come in on
+	private Selector selector;									//selects from the available connections
 
 	private ThreadPoolManager manager;
 	
@@ -56,12 +53,18 @@ public class Server {
 		hashList = new LinkedList<String>();
 		queue = new LinkedBlockingQueue<>();
 		channelsToHandle = new ArrayList<>();
-		clientsToAccept = new ArrayList<>();
+		currentClients = new Hashtable<>();
 
-		this.poolSize = poolSize;
+		messagesReceived = new AtomicInteger();
+		messagesSent = new AtomicInteger();
+		connectedClients = new AtomicInteger();
+
+		organizeLock = new Semaphore(1);
+
 		this.batchSize = batchSize;
 		this.batchTime = batchTime;
 
+		//doesn't start them
 		manager = new ThreadPoolManager(poolSize, batchSize, queue);
 	}
 
@@ -79,14 +82,12 @@ public class Server {
 		int batchSize = Integer.parseInt(args[2]);
 		int batchTime = Integer.parseInt(args[3]);
 
-		System.out.printf("BATCHSIZE: %d, BATCHTIME: %d%n", batchSize, batchTime);
-		
 		//initialize the server
 		Server server = new Server(poolSize, batchSize, batchTime);
 
-		//setup the serverSocket to listen to incoming connections, and startup the threadPool
-		server.configureAndStart(port);
-		System.out.println("Server Successfully configured");
+		//setup the serverSocket to listen to incoming connections, start the threadPool, and create the timer
+		if (!server.configureAndStart(port))
+			return;
 
 		try {
 			server.channelPolling();
@@ -95,56 +96,55 @@ public class Server {
 		}
 	}
 	
-	private void configureAndStart(int port) {
+	private boolean configureAndStart(int port) {
 		//setup the server NIO
 		try {
 			//get local host to bind
 			String host = InetAddress.getLocalHost().getHostName();
-			host = "localhost";
-			System.out.printf("Host: %s, Port: %d%n", host, port);
+//			host = "localhost";
+			System.out.printf("Listening on: Host: %s, Port: %d%n", host, port);
 
 			selector = Selector.open();
 
-			server = ServerSocketChannel.open();
-			server.socket().bind( new InetSocketAddress( host, port ) );
-			server.configureBlocking( false );
+			serverChannel = ServerSocketChannel.open();
+			serverChannel.socket().bind( new InetSocketAddress( host, port ) );
+			serverChannel.configureBlocking( false );
 
 			//setup selector to listen for connections on this serverSocketChannel
-			server.register( selector, SelectionKey.OP_ACCEPT );
-			System.out.println("Listening on: " + server.getLocalAddress());
-
+			serverChannel.register( selector, SelectionKey.OP_ACCEPT );
 			
 		} catch (IOException e) {
-			System.out.println("Configuration for Server failed. Exiting");
+			System.out.println("Configuration for Server failed. Exiting.");
 			e.printStackTrace();
+			return false;
 		}
+		System.out.println("Server Successfully configured");
 
 		//start up the ThreadPool
 		manager.start();
+
+		//create timer to handle output, and timeout
+		timer = new Timer("Output_and_timeout");
+		//schedule output
+		timer.scheduleAtFixedRate(new ServerOutput(batchTime), Constants.OUTPUT_TIME * 1000,
+				Constants.OUTPUT_TIME * 1000);
+		timeout = new ScheduleTimeout(this);
+		timer.scheduleAtFixedRate(timeout, batchTime * 1000, batchTime * 1000);
+
+		return true;
 	}
 
 	private void channelPolling() throws IOException {
 		//used by the accept loop to make sure it doesn't attempt to register the same thing multiple times
 		Semaphore acceptLock = new Semaphore(1);
-		Semaphore organizeLock = new Semaphore(1);
+
 		while (true) {
-			//Blocks until there is activity on one of the channels
-
-
-//			SelectionKey.OP_ACCEPT = 16
-//			SelectionKey.OP_CONNECT = 8
-//			SelectionKey.OP_READ = 1
-//			SelectionKey.OP_WRITE = 4
-
-//			System.out.println("Waiting For Activity");
+			//Waits until there is activity on one of the registered channels
 			if (selector.selectNow() == 0) continue;
-//			selector.select();
-//			System.out.println("ENDING BLOCK");
 			//get list of all keys
 			Iterator<SelectionKey> keys = selector.selectedKeys().iterator();
 
 			while (keys.hasNext()) {
-//				System.out.println("+");
 				//get key and find its activity
 				SelectionKey key = keys.next();
 
@@ -157,27 +157,20 @@ public class Server {
 
 				if ( key.isAcceptable()) {
 
+					//Stops redundant task creation. The lock is unlocked as soon as a thread handles
+					//the registration of a client. Should never really bottleneck program
 					if (!acceptLock.tryAcquire()) {
-//						System.out.println("Lock Already Initiated");
 						continue;
 					}
-					//already created a task for it
-
-//					System.out.printf("Accepting New Connection. %s%n", key.channel());
 
 					//Put new AcceptClientConnection in Queue with this key data
-					queue.add(new AcceptClientConnection(selector, server, acceptLock));
-//					try {
-//						Thread.sleep(200);
-//					} catch (InterruptedException e) {
-//						e.printStackTrace();
-//					}
+					addTask(new AcceptClientConnection(selector, serverChannel, acceptLock, this));
 
 				}
 
 				if ( key.isReadable()) {
 					//deregister this key, as it's now not part of the serverSocketChannel, only a specific
-					//client
+					//client. Will reregister read interests as soon as it's read from
 					key.interestOps(0);
 					//put new ReadClientData in Queue, which this key data
 					SocketChannel client = (SocketChannel) key.channel();
@@ -190,31 +183,133 @@ public class Server {
 
 						//if there are more than enough clients to handle, hand it off to a client and move on
 						if (channelsToHandle.size() >= batchSize && organizeLock.tryAcquire()) {
-//							System.out.println("BATCH LIMIT REACHED. Organizing data.");
-							queue.add(new OrganizeBatch(channelsToHandle, queue, hashList, batchSize, organizeLock));
+							addTask(new OrganizeBatch(channelsToHandle, queue, hashList, batchSize, organizeLock, this));
 						}
 					}
 
 				}
 				if ( key.isWritable()) {
-					System.out.println("Client can be written to");
+//					System.out.println("Client can be written to");
 				}
-//				System.out.println("Removing key");
+				//done with the key this iteration, check again for any new activity next select
 				keys.remove();
 			}
-//			System.out.println("RAN OUT OF KEYS");
 		}
 	}
-	
-	public synchronized void receivedData(byte[] dataFromClient) {
-		//generate a hash from it and put the
-		String hash = Hasher.SHA1FromBytes(dataFromClient);
-		hashList.add(hash);
-
-		//p
+	public void insertClient(String remoteAddress) {
+		currentClients.put(remoteAddress, 0);
+	}
+	public void removeClient(String remoteAddress) {
+		if (currentClients.contains(remoteAddress))
+			currentClients.remove(remoteAddress);
 	}
 
-	public synchronized void cancelKey(SocketChannel channelToCancel) {
-		//selector.selectedKeys().
+	//used by the accept task to update the amount of clients
+	public void incrementClients() {
+		connectedClients.incrementAndGet();
 	}
+
+	//used by the catch of the handle if a client disconnects
+	public void decrementClients() {
+		connectedClients.decrementAndGet();
+	}
+
+	//Worker threads call this whenever they get a total
+	public void incrementSent() {
+		messagesSent.incrementAndGet();
+	}
+
+	public void incrementReceived() {
+		messagesReceived.incrementAndGet();
+	}
+
+	public void incrementClientThroughput(String remoteClient) {
+		currentClients.put(remoteClient, currentClients.get(remoteClient) + 1);
+	}
+
+	public synchronized void addTask(Task task) {
+		timeout.cancel();
+		timeout = new ScheduleTimeout(this);
+		timer.scheduleAtFixedRate(timeout, batchTime * 1000, batchTime * 1000);
+		queue.add(task);
+	}
+
+
+
+	private class ServerOutput extends TimerTask {
+		int batchTime;
+
+		public ServerOutput(int batchTime) {
+			this.batchTime = batchTime;
+		}
+
+		@Override
+		public void run() {
+			//store variables as they are rapidly changing in between accesses
+			//float messagesPerSecond = messagesReceived.floatValue() / Constants.OUTPUT_TIME;
+			int clients = connectedClients.get();
+			double standardDeviation = 0;
+			double mean = 0;
+			Integer total = 0;
+			synchronized (currentClients) {
+				for (Map.Entry<String, Integer> entry : currentClients.entrySet())
+					total += entry.getValue();
+
+				if (clients != 0) {
+					mean = total / clients;
+
+					for (Map.Entry<String, Integer> entry : currentClients.entrySet()) {
+						String k = entry.getKey();
+						Integer v = entry.getValue();
+
+						standardDeviation += Math.pow(v - mean, 2);
+						currentClients.put(k, 0);
+					}
+					standardDeviation = Math.sqrt(standardDeviation / clients - 1);
+				}
+				else
+					mean = 0;
+			}
+
+			if (Double.isNaN(standardDeviation))
+				standardDeviation = 0;
+
+			System.out.printf("[%s] Server Throughput: %d messages/s, " +
+							"Active Client Connections: %d, " +
+							"Mean Per-client Throughput: %f messages/s, " +
+							"Std. Dev. Of Per-client Throughput: %f messages/s%n",
+					new Timestamp(System.currentTimeMillis()),
+					total,
+					clients,
+					mean,
+					standardDeviation
+					);
+
+
+			//reset variables for next output
+			messagesSent.set(0);
+			messagesReceived.set(0);
+
+
+		}
+	}
+
+	private class ScheduleTimeout extends TimerTask {
+		Server server;
+
+		public ScheduleTimeout(Server server) {
+			this.server = server;
+		}
+
+		@Override
+		public void run() {
+			System.out.println("TIMEOUT REACHED. GIVING TO THREADS");
+			synchronized (channelsToHandle) {
+				if (channelsToHandle.size() > 0)
+					addTask(new OrganizeBatch(channelsToHandle, queue, hashList, channelsToHandle.size(), organizeLock, server));
+			}
+		}
+	}
+
+
 }

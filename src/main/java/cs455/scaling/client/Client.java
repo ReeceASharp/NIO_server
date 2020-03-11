@@ -13,14 +13,13 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import cs455.scaling.task.Constants;
 import cs455.scaling.util.Hasher;
-import cs455.scaling.util.OutputManager;
 
 public class Client {
 	private final Random byteGenerator = new Random();	//non-static as multithreaded could cause contention
 
-	private String serverHost;				//local host name of server
-	private int serverPort;					// port of server
-	private int messageRate;				// 1 / messageRate messages generated per second
+	private String serverHost;					//local host name of server
+	private int serverPort;						// port of server
+	private int messageRate;					// 1 / messageRate messages generated per second
 	final private LinkedList<String> hashList;	// local list of hashed messages
 
 	//message statistics
@@ -29,7 +28,8 @@ public class Client {
 
 	private SocketChannel serverChannel;
 
-	private Timer timer;
+ 	private Timer sender;					//handles the sending of data to the server
+ 	private Timer outputDisplay;					//handles the output of
 
 	
 	public Client(String serverHost, int serverPort, int messageRate) {
@@ -74,9 +74,13 @@ public class Client {
 
 	private void start() {
 
-		timer = new Timer("");
-		timer.scheduleAtFixedRate(new SendData(), 0, 1000 / messageRate);
-		timer.scheduleAtFixedRate(new OutputDisplay(), Constants.OUTPUT_TIME * 1000, Constants.OUTPUT_TIME * 1000);
+		//Handles the sending of messages
+		sender = new Timer("dataSender");
+		sender.scheduleAtFixedRate(new SendData(sender), 0, 1000 / messageRate);
+
+		//need to be separate in case the client fills buffer and blocks while waiting to send messages
+		outputDisplay = new Timer("Scheduler");
+		outputDisplay.scheduleAtFixedRate(new clientOutput(), Constants.OUTPUT_TIME * 1000, Constants.OUTPUT_TIME * 1000);
 		//Start listening for incoming data
 		listen();
 	}
@@ -87,16 +91,15 @@ public class Client {
 			int bytesRead = 0;
 			try {
 				while (hashReceive.hasRemaining() && bytesRead != -1) {
-//					System.out.println("Waiting for response");
 					bytesRead = serverChannel.read(hashReceive);
 				}
 			} catch (IOException ioe) {
 				System.out.println("Error reading from buffer.");
-
+				System.exit(0);
 			}
 
 			if (bytesRead == -1) {
-				timer.cancel();
+				sender.cancel();
 
 				try {
 					serverChannel.close();
@@ -114,7 +117,7 @@ public class Client {
 					hashList.remove(index);
 					messagesReceived.incrementAndGet();
 				} else {
-					System.out.printf("Error: Did not find '%s' in generated hashes.%n", receivedHash);
+//					System.out.printf("Error: Did not find '%s' in generated hashes.%n", receivedHash);
 				}
 			}
 
@@ -145,24 +148,30 @@ public class Client {
 		}
 	}
 
-	private class OutputDisplay extends TimerTask {
-		public OutputDisplay() { }
+	private class clientOutput extends TimerTask {
+		public clientOutput() { }
 
 		@Override
 		public void run() {
-			System.out.printf("[%s] Total Sent Count: %d, Total Received Count: %d Size'%d'%n",
+			System.out.printf("[%s] Total Sent Count: %d, Total Received Count: %d%n",
 					new Timestamp(System.currentTimeMillis()), messagesSent.get(),
-					messagesReceived.get(), hashList.size());
+					messagesReceived.get());
+
+
+			messagesReceived.set(0);
+			messagesSent.set(0);
 		}
 	}
 
 	private class SendData extends TimerTask {
 		byte[] dataToSend;
 		ByteBuffer buffer;
+		Timer timer;
 
-		public SendData() {
+		public SendData(Timer timer) {
+			this.timer = timer;
+
 			dataToSend = new byte[Constants.BUFFER_SIZE];
-
 			buffer = ByteBuffer.wrap(dataToSend);
 		}
 
@@ -177,7 +186,6 @@ public class Client {
 
 				//write message over buffer
 				while (buffer.hasRemaining()) {
-//					System.out.println("Writing");
 					serverChannel.write(buffer);
 				}
 
@@ -190,10 +198,12 @@ public class Client {
 				}
 
 				//reset buffer to beginning, so it can write new information next time
-				buffer.clear();
+				buffer.reset();
+
 			} catch (IOException ioe) {
 				System.out.println("Error writing to server channel. Exiting.");
 				this.cancel();
+				timer.cancel();
 			}
 		}
 	}

@@ -1,5 +1,7 @@
 package cs455.scaling.task;
 
+import cs455.scaling.server.Server;
+
 import java.io.IOException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
@@ -11,25 +13,25 @@ import java.util.concurrent.Semaphore;
 //is passed the socketChannel
 public class AcceptClientConnection implements Task {
 	final Selector selector;
-	ServerSocketChannel server;
+	ServerSocketChannel serverChannel;
 	ArrayList<SocketChannel> clientsToAccept;
 	Semaphore lock;
-	//SocketChannel channel;
+	Server server;
 
-	public AcceptClientConnection(Selector selector, ServerSocketChannel server, Semaphore lock) {
+	public AcceptClientConnection(Selector selector, ServerSocketChannel serverChannel, Semaphore lock, Server server) {
 		this.selector = selector;
-		this.server = server;
+		this.serverChannel = serverChannel;
 		this.lock = lock;
+		this.server = server;
 	}
 
 	public void run() {
-//		System.out.println(this.getClass().getSimpleName());
+		SocketChannel client;
 		try {
 			//pick up the connection to the client
-			SocketChannel client = server.accept();
+			client = serverChannel.accept();
 
 			if (client == null) {
-//				System.out.println("Client is Null *****************");
 				lock.release();
 				return;
 			}
@@ -39,22 +41,15 @@ public class AcceptClientConnection implements Task {
 
 			//register this channel with the selector to pay attention when it can read
 			client.register(selector, SelectionKey.OP_READ);
-			//client.finishConnect();
-
-//			while(client.isConnectionPending()) {
-//				System.out.print("PENDING");
-//			}
-//			while(!client.isConnected()) {
-//				System.out.println("NOT CONNECTED");
-//			}
-
-//			System.out.printf("Client successfully registered: %s%n", client.getRemoteAddress());
+			server.insertClient(client.getRemoteAddress().toString());
+			System.out.printf("Client successfully registered: %s%n", client.getRemoteAddress());
 		} catch ( IOException ioe) {
 			ioe.printStackTrace();
 		}
-		lock.release();
-//		System.out.println("Releasing Lock and returning\n");
+		//increment the active client client count, and allow another client to register with the server
+		server.incrementClients();
 
+		lock.release();
 	}
 
 	@Override
