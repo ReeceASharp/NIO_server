@@ -12,10 +12,8 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.Semaphore;
 
 import cs455.scaling.task.AcceptClientConnection;
-import cs455.scaling.task.HandleBatch;
 import cs455.scaling.task.OrganizeBatch;
 import cs455.scaling.task.Task;
-import cs455.scaling.util.Hasher;
 
 /*
 1.1 Server Node:
@@ -129,30 +127,20 @@ public class Server {
 		Semaphore acceptLock = new Semaphore(1);
 		Semaphore organizeLock = new Semaphore(1);
 
-		//System.out.println("Listening...");
 		while (true) {
 			//Blocks until there is activity on one of the channels
-			System.out.println("Waiting For Activity");
-//			System.out.print("+");
-			try {
-				Thread.sleep(500);
-			} catch (InterruptedException e) {
-				e.printStackTrace();
-			}
+			System.out.printf("Waiting For Activity: Size: %s%n", channelsToHandle.size());
+//			try {
+//				Thread.sleep(500);
+//			} catch (InterruptedException e) {
+//				e.printStackTrace();
+//			}
 
-//			if (selector.selectNow() == 0) continue;
 			selector.select();
-//			System.out.println("ENDING BLOCK");
 			//get list of all keys
 			Iterator<SelectionKey> keys = selector.selectedKeys().iterator();
 
 			while (keys.hasNext()) {
-
-//				try {
-//					Thread.sleep(200);
-//				} catch (InterruptedException e) {
-//					e.printStackTrace();
-//				}
 
 				//get key and find its activity
 				SelectionKey key = keys.next();
@@ -164,25 +152,10 @@ public class Server {
 				}
 
 				if ( key.isAcceptable() && acceptLock.tryAcquire()) {
-
-						//already created a task for it
-
 					System.out.printf("Got Connection. %s%n", key.channel());
 
 					//Put new AcceptClientConnection in Queue with this key data
 					queue.add(new AcceptClientConnection(selector, server, acceptLock));
-
-
-					//deregister, will be handled by the threadpool
-
-//					//pick up connection
-//					SocketChannel client = server.accept();
-//
-//					//register reading interest with the selector, but don't worry about blocking
-//					client.configureBlocking(false);
-//					client.register(selector, SelectionKey.OP_READ);
-//					System.out.println("Client Registered");
-
 				}
 
 				if ( key.isReadable()) {
@@ -206,43 +179,6 @@ public class Server {
 						}
 					}
 
-//					//channelsToHandle.add((SocketChannel) key.channel());
-//					ByteBuffer buffer = ByteBuffer.allocate(Constants.BUFFER_SIZE);
-//
-//					System.out.printf("Client has data to read: Remaining: '%d' %s %n", buffer.remaining(), client.getLocalAddress());
-//					int bytesRead = 0;
-//					try {
-//						//buffer is empty, or a full set of data has been read
-//						while (buffer.hasRemaining() && bytesRead != -1) {
-//							System.out.println("Reading");
-//							bytesRead = client.read(buffer);
-//						}
-//					} catch (IOException ioe) {
-//						key.channel().close();
-//						key.cancel();
-//						System.out.println("Error reading from buffer. Removing Client");
-//
-//						//Deregister this client, cancel the key, and move on
-//						//Note: when deregistering a client, when it is shut down remotely it'll
-//						//activate read-interest on the selector to read a potential error. Ignore it.
-//						continue;
-//					}
-//
-//					//Successful read, convert received message to Hash, store, and send back
-//					String hash = Hasher.SHA1FromBytes(buffer.array());
-//					hashList.add(hash);
-////					String message = new String (buffer.array()).trim();
-//					System.out.printf("Message: '%s' Size: %d%n", hash, bytesRead);
-
-
-					//deregister this so the task isn't constantly put into the queue
-					//it'll be reregisterd with read interests as soon as the data is read from it
-
-
-//					if (clientDataList.size() > batchSize) {
-//						queue.add(new OrganizeBatch(clientDataList, queue, batchSize));
-//					}
-
 				}
 				if ( key.isWritable()) {
 					System.out.println("Client can be written to");
@@ -252,17 +188,5 @@ public class Server {
 			}
 //			System.out.println("RAN OUT OF KEYS");
 		}
-	}
-	
-	public synchronized void receivedData(byte[] dataFromClient) {
-		//generate a hash from it and put the
-		String hash = Hasher.SHA1FromBytes(dataFromClient);
-		hashList.add(hash);
-
-		//p
-	}
-
-	public synchronized void cancelKey(SocketChannel channelToCancel) {
-		//selector.selectedKeys().
 	}
 }

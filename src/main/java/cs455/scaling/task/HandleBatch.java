@@ -75,7 +75,7 @@ public class HandleBatch implements Task {
 
 		}
 
-
+		System.out.println("Handled Batch");
 	}
 
 }
