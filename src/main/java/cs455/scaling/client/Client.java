@@ -6,6 +6,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
 import java.util.LinkedList;
 import java.util.Random;
+import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -52,9 +53,10 @@ public class Client {
 		//create client, and attempt to connect to server
 		Client client = new Client(serverHost, serverPort, messageRate);
 
+
 		try {
 			//to give the server a second to setup before this starts
-			Thread.sleep(100);
+			Thread.sleep(500);
 
 			client.serverConnect();
 		} catch (IOException | InterruptedException ioe) {
@@ -62,8 +64,11 @@ public class Client {
 			return;
 		}
 
+
+		client.start();
+
 		//start generating and sending byte[]
-		client.generateMessages();
+		//client.generateMessages();
 
 		try {
 			Thread.sleep(20000);
@@ -71,6 +76,36 @@ public class Client {
 			e.printStackTrace();
 		}
 		System.out.println("Client is Exiting.");
+	}
+
+	private void start() {
+
+		Timer timer = new Timer("");
+		timer.scheduleAtFixedRate(new sendData(), 1000, 500);
+
+		//Start listening for incoming data
+		listen();
+	}
+
+	private void listen() {
+		ByteBuffer hashReceive = ByteBuffer.allocate(40);
+		while (true) {
+			int bytesRead = 0;
+			try {
+				while (hashReceive.hasRemaining() && bytesRead != -1) {
+					System.out.println("Waiting for response");
+					bytesRead = serverChannel.read(hashReceive);
+				}
+			} catch (IOException ioe) {
+				System.out.println("Error reading from buffer.");
+			}
+
+			String receivedHash = new String(hashReceive.array());
+			System.out.printf("Received Message:  '%s' Size: %d%n%n", receivedHash, bytesRead);
+
+			//reset for next message
+			hashReceive.clear();
+		}
 	}
 
 	//Client is attempting to connect to the server, socketChannels can throw errors if the server
@@ -81,63 +116,15 @@ public class Client {
 		serverChannel = SocketChannel.open();
 		serverChannel.connect(new InetSocketAddress(serverHost, serverPort));
 		System.out.println("Connected To server via: " + serverChannel.getLocalAddress());
-	}
 
-	private void generateMessages() {
-		System.out.println("Starting Message Generation...");
-		byte[] dataToSend = new byte[Constants.BUFFER_SIZE];
-		ByteBuffer hashReceive = ByteBuffer.allocate(40);
-		ByteBuffer buffer = ByteBuffer.wrap(dataToSend);
-		try {
-			for (int i = 0; i < 10; i++ ) {
-//			while (true) {
-				//generate a random byte[]
-				byteGenerator.nextBytes(dataToSend);
-				//Hash and append to linkedList
-				String hash = Hasher.SHA1FromBytes(dataToSend);
-				System.out.printf("Generated Message with hash: %s%n", hash);
-				//write message over buffer
-
-				while (buffer.hasRemaining()) {
-					//System.out.println("Writing");
-					serverChannel.write(buffer);
-				}
-
-				//written successfully, append to linked list
-				hashList.add(hash);
-
-				//reset buffer to beginning, so it can write new information next time
-				buffer.clear();
-
-				int bytesRead = 0;
-				try {
-					while (hashReceive.hasRemaining() && bytesRead != -1) {
-						//System.out.println("Waiting for response");
-						bytesRead = serverChannel.read(hashReceive);
-					}
-				} catch (IOException ioe) {
-					System.out.println("Error reading from buffer.");
-				}
-
-
-
-				String receivedHash = new String(hashReceive.array());
-				System.out.printf("Received Message:  '%s' Size: %d%n%n", receivedHash, bytesRead);
-
-				//reset for next message
-				hashReceive.clear();
-
-
-
-				//System.out.printf("Sent Message. Waiting %.3f seconds.%n", (float) 1 / messageRate);
-				Thread.sleep(1000 / messageRate);
+		while (!serverChannel.isConnected()) {
+			try {
+				Thread.sleep(100);
+			} catch (InterruptedException e) {
+				e.printStackTrace();
 			}
-		} catch (InterruptedException ie) {
-			System.out.println("Message Loop Canceled. Exiting.");
-		} catch (IOException ioe) {
-			System.out.println("Error writing to server channel. Exiting.");
+			System.out.println("Waiting For Connection to finish");
 		}
-		System.out.println("Exiting.");
 	}
 
 
@@ -146,5 +133,44 @@ public class Client {
 		System.out.println("Got a task");
 		return null;
 	}
-	
+
+	class sendData extends TimerTask {
+		byte[] dataToSend;
+		ByteBuffer buffer;
+
+		public sendData() {
+			dataToSend = new byte[Constants.BUFFER_SIZE];
+
+			buffer = ByteBuffer.wrap(dataToSend);
+		}
+
+		@Override
+		public void run() {
+			try {
+				//generate a random byte[]
+				byteGenerator.nextBytes(dataToSend);
+				//Hash and append to linkedList
+				String hash = Hasher.SHA1FromBytes(dataToSend);
+				System.out.printf("Generated Message with hash: %s%n", hash);
+
+				//write message over buffer
+				while (buffer.hasRemaining()) {
+					System.out.println("Writing");
+					serverChannel.write(buffer);
+				}
+
+				//written successfully, append to linked list
+
+				synchronized (hashList) {
+					hashList.add(hash);
+				}
+
+				//reset buffer to beginning, so it can write new information next time
+				buffer.clear();
+			} catch (IOException ioe) {
+				System.out.println("Error writing to server channel. Exiting.");
+				this.cancel();
+			}
+		}
+	}
 }

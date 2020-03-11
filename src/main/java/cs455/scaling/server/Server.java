@@ -123,23 +123,30 @@ public class Server {
 		//start up the ThreadPool
 		manager.start();
 	}
+
+
 	
 	private void channelPolling() throws IOException {
 		//used by the accept loop to make sure it doesn't attempt to register the same thing multiple times
 		Semaphore acceptLock = new Semaphore(1);
 		Semaphore organizeLock = new Semaphore(1);
-
-		//System.out.println("Listening...");
+		System.out.println("Listening...");
 		while (true) {
 			//Blocks until there is activity on one of the channels
-			System.out.println("Waiting For Activity");
-//			System.out.print("+");
-			try {
-				Thread.sleep(500);
-			} catch (InterruptedException e) {
-				e.printStackTrace();
-			}
 
+//			System.out.print("+");
+//			try {
+//				Thread.sleep(100);
+//			} catch (InterruptedException e) {
+//				e.printStackTrace();
+//			}
+
+//			SelectionKey.OP_ACCEPT = 16
+//			SelectionKey.OP_CONNECT = 8
+//			SelectionKey.OP_READ = 1
+//			SelectionKey.OP_WRITE = 4
+
+//			System.out.println("Waiting For Activity");
 //			if (selector.selectNow() == 0) continue;
 			selector.select();
 //			System.out.println("ENDING BLOCK");
@@ -148,42 +155,41 @@ public class Server {
 
 			while (keys.hasNext()) {
 
-//				try {
-//					Thread.sleep(200);
-//				} catch (InterruptedException e) {
-//					e.printStackTrace();
-//				}
-
 				//get key and find its activity
 				SelectionKey key = keys.next();
 
+
+
+				System.out.printf("Key Value: Interest: %d, Ready: %d%n", key.interestOps(), key.readyOps());
 
 				if (!key.isValid()) {
 					System.out.println("Canceled key encountered. Ignoring.");
 					continue;
 				}
 
-				if ( key.isAcceptable() && acceptLock.tryAcquire()) {
+				if ( key.isAcceptable()) {
 
-						//already created a task for it
+					if (!acceptLock.tryAcquire()) {
+						System.out.println("Lock Already Initiated");
+						continue;
+					}
 
-					System.out.printf("Got Connection. %s%n", key.channel());
+
+					//already created a task for it
+
+					System.out.printf("Accepting New Connection. %s%n", key.channel());
 
 					//Put new AcceptClientConnection in Queue with this key data
 					queue.add(new AcceptClientConnection(selector, server, acceptLock));
-
-
-					//deregister, will be handled by the threadpool
-
-//					//pick up connection
-//					SocketChannel client = server.accept();
-//
-//					//register reading interest with the selector, but don't worry about blocking
-//					client.configureBlocking(false);
-//					client.register(selector, SelectionKey.OP_READ);
-//					System.out.println("Client Registered");
+					try {
+						Thread.sleep(200);
+					} catch (InterruptedException e) {
+						e.printStackTrace();
+					}
 
 				}
+
+
 
 				if ( key.isReadable()) {
 

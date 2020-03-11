@@ -23,8 +23,9 @@ public class AcceptClientConnection implements Task {
 	}
 
 	public void run() {
-		System.out.println(this.getClass().getSimpleName());
+//		System.out.println(this.getClass().getSimpleName());
 		try {
+//			synchronized ()
 			//pick up the connection to the client
 			SocketChannel client = server.accept();
 			//register reading interest with the selector, nio
@@ -32,13 +33,17 @@ public class AcceptClientConnection implements Task {
 
 			client.register(selector, SelectionKey.OP_READ);
 
-			System.out.println("Client successfully registered");
-			lock.release();
+			System.out.printf("Client successfully registered: %s%n", client.getRemoteAddress());
 		} catch ( IOException ioe) {
 			ioe.printStackTrace();
 		}
 
-//		System.out.println("REturning");
+		System.out.println("REturning");
+		lock.release();
 	}
 
+	@Override
+	public String getName() {
+		return this.getClass().getSimpleName();
+	}
 }

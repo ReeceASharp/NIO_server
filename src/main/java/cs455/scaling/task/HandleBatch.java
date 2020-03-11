@@ -23,7 +23,7 @@ public class HandleBatch implements Task {
 	}
 
 	public void run() {
-		System.out.println(this.getClass().getSimpleName() + ", BatchSize: " + batch.size());
+//		System.out.println(this.getClass().getSimpleName() + ", BatchSize: " + batch.size());
 		//preallocate the buffer, and then just rewind it each time
 		ByteBuffer buffer = ByteBuffer.allocate(Constants.BUFFER_SIZE);
 
@@ -74,8 +74,10 @@ public class HandleBatch implements Task {
 			}
 
 		}
-
-
 	}
 
+	@Override
+	public String getName() {
+		return this.getClass().getSimpleName();
+	}
 }

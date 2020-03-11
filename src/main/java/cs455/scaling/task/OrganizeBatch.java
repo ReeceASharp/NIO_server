@@ -28,7 +28,7 @@ public class OrganizeBatch implements Task {
 
     @Override
     public void run() {
-        System.out.println(this.getClass().getSimpleName());
+//        System.out.println(this.getClass().getSimpleName());
 
         synchronized(channelsToHandle) {
             System.out.printf("Getting list of size: %d from %d %n", batchSize, channelsToHandle.size());
@@ -42,5 +42,10 @@ public class OrganizeBatch implements Task {
         lock.release();
 
         queue.add(new HandleBatch(batch, hashList));
+    }
+
+    @Override
+    public String getName() {
+        return this.getClass().getSimpleName();
     }
 }
