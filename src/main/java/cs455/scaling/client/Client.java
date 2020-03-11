@@ -98,6 +98,7 @@ public class Client {
 				System.exit(0);
 			}
 
+
 			if (bytesRead == -1) {
 				sender.cancel();
 
@@ -124,7 +125,7 @@ public class Client {
 //			System.out.printf("Received Message: \t  '%s' Size: %d%n%n", receivedHash, bytesRead);
 
 			//reset for next message
-			hashReceive.clear();
+			hashReceive.rewind();
 		}
 	}
 
@@ -198,7 +199,7 @@ public class Client {
 				}
 
 				//reset buffer to beginning, so it can write new information next time
-				buffer.reset();
+				buffer.rewind();
 
 			} catch (IOException ioe) {
 				System.out.println("Error writing to server channel. Exiting.");

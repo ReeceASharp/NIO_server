@@ -303,7 +303,6 @@ public class Server {
 
 		@Override
 		public void run() {
-			System.out.println("TIMEOUT REACHED. GIVING TO THREADS");
 			synchronized (channelsToHandle) {
 				if (channelsToHandle.size() > 0)
 					addTask(new OrganizeBatch(channelsToHandle, queue, hashList, channelsToHandle.size(), organizeLock, server));

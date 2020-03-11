@@ -18,7 +18,6 @@ public class ThreadPoolWorker extends Thread {
 
 	@Override
 	public void run() {
-		System.out.println("Running a ThreadPoolWorker");
 
 		//This needs to run the task given
 		try {
