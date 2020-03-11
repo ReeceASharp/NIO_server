@@ -13,7 +13,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import cs455.scaling.task.Constants;
 import cs455.scaling.util.Hasher;
-import cs455.scaling.util.OutputManager;
 
 public class Client {
 	private final Random byteGenerator = new Random();	//non-static as multithreaded could cause contention
@@ -76,7 +75,7 @@ public class Client {
 
 		timer = new Timer("");
 		timer.scheduleAtFixedRate(new SendData(), 0, 1000 / messageRate);
-		timer.scheduleAtFixedRate(new OutputDisplay(), Constants.OUTPUT_TIME * 1000, Constants.OUTPUT_TIME * 1000);
+		timer.scheduleAtFixedRate(new ClientDisplay(), Constants.OUTPUT_TIME * 1000, Constants.OUTPUT_TIME * 1000);
 		//Start listening for incoming data
 		listen();
 	}
@@ -134,28 +133,27 @@ public class Client {
 		serverChannel.connect(new InetSocketAddress(serverHost, serverPort));
 		System.out.println("Connected To server via: " + serverChannel.getLocalAddress());
 
-		while (!serverChannel.isConnected()) {
-			System.out.println("Waiting For Connection to finish");
-			try {
-				Thread.sleep(100);
-			} catch (InterruptedException e) {
-				e.printStackTrace();
-			}
-
-		}
 	}
 
-	private class OutputDisplay extends TimerTask {
-		public OutputDisplay() { }
+	//A small class that gives the current client data along with a timestamp
+	//utilized on the same Timer as the message sending
+	private class ClientDisplay extends TimerTask {
+		public ClientDisplay() { }
 
 		@Override
 		public void run() {
-			System.out.printf("[%s] Total Sent Count: %d, Total Received Count: %d Size'%d'%n",
+			System.out.printf("[%s] Total Sent Count: %d, Total Received Count: %d%n",
 					new Timestamp(System.currentTimeMillis()), messagesSent.get(),
-					messagesReceived.get(), hashList.size());
+					messagesReceived.get());
+
+			//reset counters for next timestamp output
+			messagesReceived.set(0);
+			messagesSent.set(0);
+
 		}
 	}
 
+	//utilized by the Client to send data 1 / messageRate times per second
 	private class SendData extends TimerTask {
 		byte[] dataToSend;
 		ByteBuffer buffer;
@@ -182,8 +180,6 @@ public class Client {
 				}
 
 				messagesSent.incrementAndGet();
-
-
 				//written successfully, append to linked list
 				synchronized (hashList) {
 					hashList.add(hash);

@@ -7,6 +7,7 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
+import java.sql.Timestamp;
 import java.util.*;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.Semaphore;
@@ -101,7 +102,7 @@ public class Server {
 			//get local host to bind
 			String host = InetAddress.getLocalHost().getHostName();
 			host = "localhost";
-			System.out.printf("Host: %s, Port: %d%n", host, port);
+			System.out.printf("Listening on Host: %s, Port: %d", host, port);
 
 			selector = Selector.open();
 
@@ -111,7 +112,7 @@ public class Server {
 
 			//setup selector to listen for connections on this serverSocketChannel
 			server.register( selector, SelectionKey.OP_ACCEPT );
-			System.out.println("Listening on: " + server.getLocalAddress());
+//			System.out.println("Listening on: " + server.getLocalAddress());
 
 			
 		} catch (IOException e) {
@@ -216,5 +217,14 @@ public class Server {
 
 	public synchronized void cancelKey(SocketChannel channelToCancel) {
 		//selector.selectedKeys().
+	}
+
+	private class ServerOutput extends TimerTask {
+		public ServerOutput() { }
+
+		@Override
+		public void run() {
+			System.out.printf("");
+		}
 	}
 }

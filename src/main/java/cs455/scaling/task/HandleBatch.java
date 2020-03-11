@@ -64,9 +64,15 @@ public class HandleBatch implements Task {
 				client.key.interestOps(SelectionKey.OP_READ);
 
 			} catch (IOException ioe) {
-//				key.channel().close();
-//				key.cancel();
-				System.out.println("Error reading from buffer. Removing Client: ");
+				try {
+					System.out.println("Error reading from buffer. Removing Client: " + client.channel.getRemoteAddress());
+					//attempt to close channel, but it's most likely already closed
+					client.key.channel().close();
+				} catch (IOException ignore) {}
+
+				//cancel key so it's no longer monitored by the Server selector
+				client.key.cancel();
+
 
 				//Deregister this client, cancel the key, and move on
 				//Note: when deregistering a client, when it is shut down remotely it'll
