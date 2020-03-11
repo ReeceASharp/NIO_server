@@ -1,5 +1,7 @@
 package cs455.scaling.util;
 
+import cs455.scaling.task.Constants;
+
 import java.math.BigInteger;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -37,7 +39,7 @@ public class Hasher {
         StringBuilder sb = new StringBuilder(hash);
 
 
-        int zerosToAppend = 40 - hash.length();
+        int zerosToAppend = Constants.HASH_SIZE - hash.length();
         if (zerosToAppend > 0) {
             char[] zeros = new char[zerosToAppend];
             Arrays.fill(zeros, '0');

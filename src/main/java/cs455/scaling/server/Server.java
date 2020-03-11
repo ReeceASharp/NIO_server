@@ -127,15 +127,9 @@ public class Server {
 		//used by the accept loop to make sure it doesn't attempt to register the same thing multiple times
 		Semaphore acceptLock = new Semaphore(1);
 		Semaphore organizeLock = new Semaphore(1);
-		System.out.println("Listening...");
-
-//		int i = 0;
 		while (true) {
-//			i++;
 			//Blocks until there is activity on one of the channels
 
-//			if (i % 100000 == 0)
-//				System.out.print("+");
 
 //			SelectionKey.OP_ACCEPT = 16
 //			SelectionKey.OP_CONNECT = 8
